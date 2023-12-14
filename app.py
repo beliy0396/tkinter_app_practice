@@ -1,373 +1,671 @@
-from tkinter import *
-import ttkbootstrap as ttk
-import sqlite3
-import datetime
+import tkinter as tk
+from tkinter import ttk
 from sqlalchemy import create_engine, text
-from ttkbootstrap.dialogs import Messagebox
-from tkinter import messagebox
 import config
 
-class MainPage(ttk.Frame):
-    def __init__(self, root):
-        super().__init__(root)
+
+class Autorization(tk.Tk):
+    def __init__(self):
+        super().__init__()
+
+        self.title('Главная')
+        self.iconbitmap('')
+        self.geometry('850x400')
+        self['background'] = 'gray'
+        self.resizable(False, False)
 
         self.db = db
+        self.init_autorization_page()
 
+    def init_autorization_page(self):
+        self.label_welcome = ttk.Label(self, text='Добро пожаловать в систему управления!',
+                                        font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_welcome.pack(pady=(50, 0))
+
+        self.label_welcome_subtitle = ttk.Label(self, text='Введите логин и пароль от аккаунта',
+                                        font=("Helvetica", 16, 'bold'), foreground='white', background='gray')
+        self.label_welcome_subtitle.pack(pady=(25, 0))
+
+        self.label_login_autorazation = ttk.Label(self, text='Логин:',
+                                                font=("Helvetica", 16, 'bold'), foreground='white', background='gray')
+        self.label_login_autorazation.pack(pady=(25, 0))
+
+        self.entry_login_autorization = ttk.Entry(self, font=("Helvetica", 14, 'bold'), width=30)
+        self.entry_login_autorization.pack(pady=(10, 0))
+
+        self.label_password_autorazation = ttk.Label(self, text='Пароль:',
+                                                    font=("Helvetica", 16, 'bold'), foreground='white', background='gray')
+        self.label_password_autorazation.pack(pady=(25, 0))
+
+        self.entry_password_autorization = ttk.Entry(self, font=("Helvetica", 14, 'bold'), width=30)
+        self.entry_password_autorization.pack(pady=(10, 0))
+
+        self.btn_autorization = ttk.Button(self, text='Вход в систему', width=40, command=self.check_valid_account)
+        self.btn_autorization.pack(pady=20)
+
+    def check_valid_account(self):
+        login = self.entry_login_autorization.get()
+        password = self.entry_password_autorization.get()
+
+        lavid_login = self.db.cur.execute(
+            f"SELECT * FROM db.users WHERE db.users.users_user_login='{login}' AND db.users.users_user_status='admin'"
+        )
+
+        results_login = self.db.cur.fetchall()
+        if results_login:
+            lavid_password = self.db.cur.execute(
+                f"SELECT db.users.users_user_password FROM db.users WHERE db.users.users_user_login='{login}' AND db.users.users_user_password='{password}'"
+            )
+            results_password = self.db.cur.fetchall()
+            if results_password:
+
+                global id_autorization_user
+                id_autorization_user = self.db.cur.execute(
+                    f"SELECT db.users.users_user_id FROM db.users WHERE db.users.users_user_login='{login}' AND db.users.users_user_password='{password}'"
+                )
+                id_autorization_user = self.db.cur.fetchall()
+                id_autorization_user = id_autorization_user[0][0]
+
+                self.destroy()
+                MainPage()
+            else:
+                PasswordError()
+        else:
+            LoginNotExits()
+
+
+
+class LoginNotExits(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Ошибка!')
+        self.iconbitmap('')
+        self.geometry('700x350')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.init_login_not_exits()
+
+    def init_login_not_exits(self):
+        self.label_error_login = ttk.Label(self, text='Аккаунт с таким логином не найден!',
+                                            font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_error_login.pack(pady=(100, 0))
+
+        self.btn_error_login = ttk.Button(self, text='Попробовать ещё раз', width=40, command=self.btn_error_login_okay)
+        self.btn_error_login.pack(pady=50)
+
+    def btn_error_login_okay(self):
+        self.destroy()
+
+class PasswordError(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Ошибка!')
+        self.iconbitmap('')
+        self.geometry('700x350')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.init_password_error()
+
+    def init_password_error(self):
+        self.label_error_password = ttk.Label(self, text='Неверный пароль!',
+                                            font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_error_password.pack(pady=(100, 0))
+
+        self.btn_error_password = ttk.Button(self, text='Попробовать ещё раз', width=40, command=self.btn_error_password_okay)
+        self.btn_error_password.pack(pady=50)
+
+    def btn_error_password_okay(self):
+        self.destroy()
+
+
+########################################################################################################################
+class MainPage(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Главная!')
+        self.iconbitmap('')
+        self.geometry('1200x800')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.db = db
         self.init_main_page()
         self.view_all_projects()
-        self.view_not_approved()
+        self.view_not_approved_projects()
+
 
     def init_main_page(self):
-        def select_not_approved_project(a):
-            item = self.tree_not_approved.focus()
-            global id_not_approved_project
-            id_not_approved_project = self.tree_not_approved.item(item)['values'][0]
-            ApprovedProject()
+        self.mainMenu = ttk.Notebook(self)
 
-        def select_edit_project(a):
-            item = self.tree_main_page.focus()
-            global id_edit_project
-            id_edit_project = self.tree_main_page.item(item)['values'][0]
-            EditProject()
+        tab_main = ttk.Frame(self.mainMenu)
+        tab_not_approved_projects = ttk.Frame(self.mainMenu)
+        tab_analytis = ttk.Frame(self.mainMenu)
 
-        btn_added = ttk.Button(self, text='Добавить новый проект', bootstyle="success", width=20,
-                               command=self.added_project_page)
-        btn_added.pack(pady=50)
+        self.mainMenu.add(tab_main, text='Все проекты')
+        self.mainMenu.add(tab_not_approved_projects, text='Утверждение')
+        self.mainMenu.add(tab_analytis, text='Аналитика')
 
-        self.tabControl = ttk.Notebook(self)
+        self.mainMenu.pack(expand=1, fill="both")
 
-        tab_main = ttk.Frame(self.tabControl)
-        tab_not_approved_projects = ttk.Frame(self.tabControl)
-        tab_add_project = ttk.Frame(self.tabControl)
+        #tab_main
 
-        self.tabControl.add(tab_main, text='Главная')
-        self.tabControl.add(tab_not_approved_projects, text='Утверждение')
-
-
-        self.tabControl.pack(expand=1, fill="both")
+        def select_project_main_page(a):
+            selected_item = self.tree_main_page.focus()
+            global id_selected_project
+            id_selected_project = self.tree_main_page.item(selected_item)['values'][0]
 
         self.label_main_page = ttk.Label(tab_main, text='Все проекты:',
-                                             font=("Helvetica", 24, 'bold'))
-        self.label_main_page.pack(pady=(50, 0))
+                                         font=("Helvetica", 24, 'bold'), foreground='gray')
+        self.label_main_page.pack(pady=(50, 0), padx=(50, 0))
 
         self.tree_main_page = ttk.Treeview(tab_main,
-                                           columns=('project.title', 'project.description', 'project.skills',
-                                                    'project.status', 'project.owner'),
-                                           height=35,
+                                           columns=('project.id', 'project.title', 'project.description',
+                                                    'project.status'),
+                                           height=25,
                                            show='headings')
-        self.tree_main_page.column('project.title', width=200, anchor=ttk.CENTER)
-        self.tree_main_page.column('project.description', width=200, anchor=ttk.CENTER)
-        self.tree_main_page.column('project.skills', width=200, anchor=ttk.CENTER)
-        self.tree_main_page.column('project.status', width=200, anchor=ttk.CENTER)
-        self.tree_main_page.column('project.owner', width=200, anchor=ttk.CENTER)
+        self.tree_main_page.column('project.id', width=200, anchor=tk.CENTER)
+        self.tree_main_page.column('project.title', width=200, anchor=tk.CENTER)
+        self.tree_main_page.column('project.description', width=200, anchor=tk.CENTER)
+        self.tree_main_page.column('project.status', width=200, anchor=tk.CENTER)
 
-        self.tree_main_page.heading('project.title', text='Название проекта', anchor=ttk.CENTER)
-        self.tree_main_page.heading('project.description', text='Описание', anchor=ttk.CENTER)
-        self.tree_main_page.heading('project.skills', text='Скилы', anchor=ttk.CENTER)
-        self.tree_main_page.heading('project.status', text='Статус', anchor=ttk.CENTER)
-        self.tree_main_page.heading('project.owner', text='Владелец', anchor=ttk.CENTER)
+        self.tree_main_page.heading('project.id', text='Номер', anchor=tk.CENTER)
+        self.tree_main_page.heading('project.title', text='Название', anchor=tk.CENTER)
+        self.tree_main_page.heading('project.description', text='Описание', anchor=tk.CENTER)
+        self.tree_main_page.heading('project.status', text='Статус', anchor=tk.CENTER)
 
-        self.tree_main_page.bind('<ButtonRelease-1>', select_edit_project)
+        self.tree_main_page.bind("<<TreeviewSelect>>", select_project_main_page)
 
-        self.tree_main_page.pack(pady=(80, 150))
+        self.tree_main_page.pack(pady=20)
 
+        btn_frame_main_page = ttk.Frame(tab_main)
+        btn_frame_main_page.pack()
 
+        self.btn_add_project = ttk.Button(btn_frame_main_page, text='Добавить', width=30, command=self.open_added_project_page)
+        self.btn_add_project.pack(side=tk.LEFT, pady=10, padx=15)
 
-        self.label_not_approved = ttk.Label(tab_not_approved_projects, text='Проекты на утверждение:',
-                                            font=("Helvetica", 24, 'bold'))
-        self.label_not_approved.pack(pady=(50, 0))
+        self.btn_info_project = ttk.Button(btn_frame_main_page, text='Информация', width=30, command=self.open_info_project_page)
+        self.btn_info_project.pack(side=tk.LEFT, pady=10, padx=15)
 
-        self.tree_not_approved = ttk.Treeview(tab_not_approved_projects,
-                                               columns=('project.id', 'project.title', 'project.description', 'project.skills',
-                                                        'project.status', 'project.owner'),
-                                               height=35,
-                                               show='headings')
-        self.tree_not_approved.column('project.id', width=200, anchor=ttk.CENTER)
-        self.tree_not_approved.column('project.title', width=200, anchor=ttk.CENTER)
-        self.tree_not_approved.column('project.description', width=200, anchor=ttk.CENTER)
-        self.tree_not_approved.column('project.skills', width=200, anchor=ttk.CENTER)
-        self.tree_not_approved.column('project.status', width=200, anchor=ttk.CENTER)
-        self.tree_not_approved.column('project.owner', width=200, anchor=ttk.CENTER)
+        self.btn_edit_project = ttk.Button(btn_frame_main_page, text='Редактировать', width=30, command=self.open_edit_project_page)
+        self.btn_edit_project.pack(side=tk.LEFT, pady=10, padx=15)
 
-        self.tree_not_approved.heading('project.id', text='Номер проекта', anchor=ttk.CENTER)
-        self.tree_not_approved.heading('project.title', text='Название проекта', anchor=ttk.CENTER)
-        self.tree_not_approved.heading('project.description', text='Описание', anchor=ttk.CENTER)
-        self.tree_not_approved.heading('project.skills', text='Скилы', anchor=ttk.CENTER)
-        self.tree_not_approved.heading('project.status', text='Статус', anchor=ttk.CENTER)
-        self.tree_not_approved.heading('project.owner', text='Владелец', anchor=ttk.CENTER)
+        self.btn_delete_project = ttk.Button(btn_frame_main_page, text='Удалить', width=30, command=self.open_del_project_page)
+        self.btn_delete_project.pack(side=tk.LEFT, pady=10, padx=15)
 
-        self.tree_not_approved.bind('<ButtonRelease-1>', select_not_approved_project)
+        self.btn_update_project = ttk.Button(btn_frame_main_page, text='Обновить', width=30, command=self.view_all_projects)
+        self.btn_update_project.pack(side=tk.LEFT, pady=10, padx=15)
 
-
-        self.tree_not_approved.pack(pady=(80, 150))
-
-    def added_project_page(self):
-        AddedNewProject()
-
-    def view_not_approved(self):
-        self.db.cur.execute(
-            f"SELECT db.projects.projects_project_id, db.projects.projects_project_title, db.projects.projects_project_description, db.projects.projects_project_skills, db.projects.projects_project_status, db.projects.projects_project_owner_users_user_id FROM db.projects WHERE projects_project_status = 'На утверждении'"
+        process = self.db.cur.execute(
+            f"SELECT COUNT(*) FROM db.projects WHERE db.projects.projects_project_status = 'Активен'"
         )
-        [self.tree_not_approved.delete(i) for i in self.tree_not_approved.get_children()]
-        [self.tree_not_approved.insert('', 'end', values=row) for row in self.db.cur.fetchall()]
+        process = self.db.cur.fetchone()
+        self.proccess = process[0]
+
+        realise = self.db.cur.execute(
+            f"SELECT COUNT(*) FROM db.projects WHERE db.projects.projects_project_status = 'Закончен' AND db.projects.projects_project_status = 'На утверждении'"
+        )
+        realise = self.db.cur.fetchone()
+        self.realise = realise[0]
+
+        all_projects = self.db.cur.execute(
+            f"SELECT COUNT(*) FROM db.projects"
+        )
+        all_projects = self.db.cur.fetchone()
+        self.all_projects = all_projects[0]
+
+
+        self.label_analytics_all= ttk.Label(tab_analytis, text=f'Всего проектов: {self.all_projects}',
+                                           font=("Helvetica", 24, 'bold'), foreground='gray')
+        self.label_analytics_all.pack(pady=(50, 0))
+
+        self.label_analytics_proccess = ttk.Label(tab_analytis, text=f'В процессе: {self.proccess}',
+                                             font=("Helvetica", 24, 'bold'), foreground='gray')
+        self.label_analytics_proccess.pack(pady=(50, 0))
+
+        self.label_analytics_realise = ttk.Label(tab_analytis, text=f'Реализовано: {self.realise}',
+                                                  font=("Helvetica", 24, 'bold'), foreground='gray')
+        self.label_analytics_realise.pack(pady=(50, 0))
+
+
+
+        def select_project_not_approved_page(a):
+            selected_item_not_approved = self.tree_not_approved_page.focus()
+            global id_selected_project_not_approved
+            id_selected_project_not_approved = self.tree_not_approved_page.item(selected_item_not_approved)['values'][0]
+
+        self.label_not_approved_page = ttk.Label(tab_not_approved_projects, text='Не утверждены:',
+                                         font=("Helvetica", 24, 'bold'), foreground='gray')
+        self.label_not_approved_page.pack(pady=(50, 0), padx=(50, 0))
+
+        self.tree_not_approved_page = ttk.Treeview(tab_not_approved_projects,
+                                           columns=('project.id', 'project.title', 'project.description',
+                                                    'project.status'),
+                                           height=25,
+                                           show='headings')
+        self.tree_not_approved_page.column('project.id', width=200, anchor=tk.CENTER)
+        self.tree_not_approved_page.column('project.title', width=200, anchor=tk.CENTER)
+        self.tree_not_approved_page.column('project.description', width=200, anchor=tk.CENTER)
+        self.tree_not_approved_page.column('project.status', width=200, anchor=tk.CENTER)
+
+        self.tree_not_approved_page.heading('project.id', text='Номер', anchor=tk.CENTER)
+        self.tree_not_approved_page.heading('project.title', text='Название', anchor=tk.CENTER)
+        self.tree_not_approved_page.heading('project.description', text='Описание', anchor=tk.CENTER)
+        self.tree_not_approved_page.heading('project.status', text='Статус', anchor=tk.CENTER)
+
+        self.tree_not_approved_page.bind("<<TreeviewSelect>>", select_project_not_approved_page)
+
+        self.tree_not_approved_page.pack(pady=20)
+
+        btn_frame_not_approved_page = ttk.Frame(tab_not_approved_projects)
+        btn_frame_not_approved_page.pack()
+
+        self.btn_approved_project = ttk.Button(btn_frame_not_approved_page, text='Утвердить', width=30, command=self.open_approved_project)
+        self.btn_approved_project.pack(side=tk.LEFT, pady=10, padx=15)
+
+        self.btn_update_not_approved = ttk.Button(btn_frame_not_approved_page, text='Обновить', width=30,
+                                             command=self.view_not_approved_projects)
+        self.btn_update_not_approved.pack(side=tk.LEFT, pady=10, padx=15)
 
     def view_all_projects(self):
         self.db.cur.execute(
-            f"SELECT db.projects.projects_project_id, db.projects.projects_project_title, db.projects.projects_project_description, db.projects.projects_project_skills, db.projects.projects_project_status, db.projects.projects_project_owner_users_user_id FROM db.projects"
+            f"SELECT db.projects.projects_project_id, db.projects.projects_project_title, db.projects.projects_project_description, db.projects.projects_project_status FROM db.projects"
         )
         [self.tree_main_page.delete(i) for i in self.tree_main_page.get_children()]
         [self.tree_main_page.insert('', 'end', values=row) for row in self.db.cur.fetchall()]
 
-class ApprovedProject(ttk.Toplevel):
-    def __init__(self):
-        super().__init__(root)
-        self.db = db
-        self.init_approved()
-        self.get_data_project()
-
-    def init_approved(self):
-        self.title('Утвердить проект')
-        self.geometry('1200x800')
-        self.resizable(False, False)
-
-        btn_approved = ttk.Button(self, text='Утвердить проект', bootstyle="success", width=20,
-                                  command=self.approved_project)
-        btn_approved.pack(pady=50)
-
-        self.label_approved = ttk.Label(self, text='Информация о проекте:',
-                                            font=("Helvetica", 24, 'bold'))
-        self.label_approved.pack(pady=(50, 0))
-
-        self.tree_approved = ttk.Treeview(self,
-                                              columns=(
-                                              'project.id', 'project.title', 'project.description', 'project.skills',
-                                              'project.status', 'project.owner'),
-                                              height=35,
-                                              show='headings')
-        self.tree_approved.column('project.id', width=200, anchor=ttk.CENTER)
-        self.tree_approved.column('project.title', width=200, anchor=ttk.CENTER)
-        self.tree_approved.column('project.description', width=200, anchor=ttk.CENTER)
-        self.tree_approved.column('project.skills', width=200, anchor=ttk.CENTER)
-        self.tree_approved.column('project.status', width=200, anchor=ttk.CENTER)
-        self.tree_approved.column('project.owner', width=200, anchor=ttk.CENTER)
-
-        self.tree_approved.heading('project.id', text='Номер проекта', anchor=ttk.CENTER)
-        self.tree_approved.heading('project.title', text='Название проекта', anchor=ttk.CENTER)
-        self.tree_approved.heading('project.description', text='Описание', anchor=ttk.CENTER)
-        self.tree_approved.heading('project.skills', text='Скилы', anchor=ttk.CENTER)
-        self.tree_approved.heading('project.status', text='Статус', anchor=ttk.CENTER)
-        self.tree_approved.heading('project.owner', text='Владелец', anchor=ttk.CENTER)
-
-        self.tree_approved.pack(pady=(80, 150))
-
-
-    def approved_project(self):
+    def view_not_approved_projects(self):
         self.db.cur.execute(
-            f"UPDATE db.projects SET projects_project_status = 'Активен' WHERE projects_project_id ={id_not_approved_project}"
+            f"SELECT db.projects.projects_project_id, db.projects.projects_project_title, db.projects.projects_project_description, db.projects.projects_project_status FROM db.projects WHERE db.projects.projects_project_status = 'На утверждении'"
         )
-        self.db.connection.commit()
-        self.destroy()
-        Success()
+        [self.tree_not_approved_page.delete(i) for i in self.tree_not_approved_page.get_children()]
+        [self.tree_not_approved_page.insert('', 'end', values=row) for row in self.db.cur.fetchall()]
 
+    def open_approved_project(self):
+        OpenApprovedProject()
 
-    def get_data_project(self):
-        self.db.cur.execute(
-            f"SELECT db.projects.projects_project_id, db.projects.projects_project_title, db.projects.projects_project_description, db.projects.projects_project_skills, db.projects.projects_project_status, db.projects.projects_project_owner_users_user_id FROM db.projects WHERE projects_project_id = {id_not_approved_project}"
-        )
-        [self.tree_approved.delete(i) for i in self.tree_approved.get_children()]
-        [self.tree_approved.insert('', 'end', values=row) for row in self.db.cur.fetchall()]
+    def open_added_project_page(self):
+        AddedNewProject()
 
-class AddedNewProject(ttk.Toplevel):
+    def open_info_project_page(self):
+        OpenInfoProject()
+
+    def open_edit_project_page(self):
+        OpenEditProject()
+
+    def open_del_project_page(self):
+        OpenDeleteProject()
+
+class AddedNewProject(tk.Toplevel):
     def __init__(self):
-        super().__init__(root)
-        self.db = db
-        self.init_added()
-
-    def init_added(self):
+        super().__init__()
         self.title('Добавить новый проект')
+        self.iconbitmap('')
         self.geometry('1200x800')
+        self['background'] = 'gray'
         self.resizable(False, False)
 
-        btn_added = ttk.Button(self, text='Добавить проект', bootstyle="success", width=20,
-                                  command=self.added_project)
-        btn_added.pack(pady=50)
+        self.db = db
+        self.init_added_new_project_page()
 
+
+    def init_added_new_project_page(self):
         self.label_title = ttk.Label(self, text='Название проекта:',
-                                            font=("Helvetica", 24, 'bold'))
-        self.label_title.pack(pady=(50, 0))
+                                     font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_title.pack(pady=(150, 0))
 
-        self.entry_title = ttk.Entry(self, bootstyle='secondary', font=("Helvetica", 8, 'bold'))
-        self.entry_title.pack(side=ttk.TOP, padx=10, pady=(5, 20))
+        self.entry_title = ttk.Entry(self, font=("Helvetica", 16, 'bold'))
+        self.entry_title.pack(side=tk.TOP, padx=10, pady=(5, 20))
 
         self.label_description = ttk.Label(self, text='Описание проекта:',
-                                     font=("Helvetica", 24, 'bold'))
+                                           font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
         self.label_description.pack(pady=(50, 0))
 
-        self.entry_description = ttk.Entry(self, bootstyle='secondary', font=("Helvetica", 8, 'bold'))
-        self.entry_description.pack(side=ttk.TOP, padx=10, pady=(5, 20))
+        self.entry_description = ttk.Entry(self, font=("Helvetica", 16, 'bold'))
+        self.entry_description.pack(side=tk.TOP, padx=10, pady=(5, 20))
 
         self.label_skills = ttk.Label(self, text='Навыки:',
-                                     font=("Helvetica", 24, 'bold'))
+                                      font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
         self.label_skills.pack(pady=(50, 0))
 
-        self.entry_skills = ttk.Entry(self, bootstyle='secondary', font=("Helvetica", 8, 'bold'))
-        self.entry_skills.pack(side=ttk.TOP, padx=10, pady=(5, 20))
+        combobox_skills_values = ['Дата каратист', 'Игродел', '.NET']
+        self.combobox_skills = ttk.Combobox(self, values=combobox_skills_values, width=35)
+        self.combobox_skills.pack(pady=(20, 0))
 
-    def added_project(self):
+        self.btn_added_new_project = ttk.Button(self, text='Добавить проект', width=40, command=self.added_new_project)
+        self.btn_added_new_project.pack(side=tk.TOP, pady=50)
+
+    def added_new_project(self):
         title = self.entry_title.get()
         description = self.entry_description.get()
-        skills = self.entry_skills.get()
+        skills = self.combobox_skills.get()
 
 
         self.db.cur.execute(
-            f"INSERT INTO db.projects(projects_project_title, projects_project_description, projects_project_owner_users_user_id, projects_project_skills, projects_project_status) VALUES('{title}', '{description}', 2, '{skills}', 'На утверждении')"
+            f"INSERT INTO db.projects(projects_project_title, projects_project_description, projects_project_owner_users_user_id, projects_project_skills, projects_project_status) VALUES('{title}', '{description}', {id_autorization_user}, '{skills}', 'На утверждении') RETURNING projects_project_id"
+        )
+        self.db.connection.commit()
+        last_id_project = self.db.cur.fetchone()
+        last_id_project = last_id_project[0]
+
+        self.db.cur.execute(
+            f"INSERT INTO db.project_team(project_team_projects_project_id) VALUES({last_id_project}) RETURNING project_team_id"
+        )
+        self.db.connection.commit()
+        last_id_team = self.db.cur.fetchone()
+        last_id_team = last_id_team[0]
+
+        self.db.cur.execute(
+            f"INSERT INTO db.project_team_members(project_team_members_project_team_project_team_id, project_team_members_users_user_id, project_team_members_role) VALUES({last_id_team}, {id_autorization_user}, 'Владелец')"
         )
         self.db.connection.commit()
         self.destroy()
         Success()
 
-class EditProject(ttk.Toplevel):
+class OpenInfoProject(tk.Toplevel):
     def __init__(self):
-        super().__init__(root)
-        self.db = db
-        self.init_edit()
-
-    def init_edit(self):
-        self.title('Редактировать проект')
+        super().__init__()
+        self.title('Информация о проекте')
+        self.iconbitmap('')
         self.geometry('1200x800')
+        self['background'] = 'gray'
         self.resizable(False, False)
 
-        btn_edit = ttk.Button(self, text='Подвердить изменения', bootstyle="success", width=20,
-                                  command=self.edit_project)
-        btn_edit.pack(pady=50)
+        self.db = db
+        self.init_info_project_page()
 
-        btn_edit_team = ttk.Button(self, text='Команда проекта', bootstyle="success", width=20,
-                              command=self.edit_team_project_page)
-        btn_edit_team.pack(pady=50)
+    def init_info_project_page(self):
+        result = self.db.cur.execute(
+            f"SELECT db.projects.projects_project_id, db.projects.projects_project_title, db.projects.projects_project_description, db.projects.projects_project_skills, db.projects.projects_project_status FROM db.projects WHERE db.projects.projects_project_id ={id_selected_project}"
+        )
+        result = self.db.cur.fetchone()
+        self.number = result[0]
+        self.title = result[1]
+        self.description = result[2]
+        self.skills = result[3]
+        self.status = result[4]
 
-        btn_delete = ttk.Button(self, text='Удалить проект', bootstyle="success", width=20,
-                                   command=self.delete_project)
-        btn_delete.pack(pady=50)
+        result_owner = self.db.cur.execute(
+            f"SELECT db.users.users_user_login FROM db.users INNER JOIN db.project_team_members ON db.project_team_members.project_team_members_users_user_id = db.users.users_user_id INNER JOIN db.project_team ON db.project_team.project_team_id = db.project_team_members.project_team_members_project_team_project_team_id INNER JOIN db.projects ON db.projects.projects_project_id = db.project_team.project_team_projects_project_id WHERE db.projects.projects_project_id ={id_selected_project}"
+        )
+        result_owner = self.db.cur.fetchone()
+
+
+        self.owner = result_owner[0]
+
+
+        self.label_info_project = ttk.Label(self, text='Информация о проекте:',
+                                     font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_info_project.pack(pady=(100, 0))
+
+        self.label_info_number = ttk.Label(self, text=f'Номер: {self.number}',
+                                            font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_info_number.pack(pady=(50, 0))
+
+        self.label_info_title = ttk.Label(self, text=f'Название: {self.title}',
+                                           font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_info_title.pack(pady=(50, 0))
+
+        self.label_info_description = ttk.Label(self, text=f'Описание: {self.description}',
+                                           font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_info_description.pack(pady=(50, 0))
+
+        self.label_info_owner = ttk.Label(self, text=f'Владелец: {self.owner}',
+                                           font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_info_owner.pack(pady=(50, 0))
+
+        self.label_info_skills = ttk.Label(self, text=f'Скиллы: {self.skills}',
+                                           font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_info_skills.pack(pady=(50, 0))
+
+        self.label_info_status = ttk.Label(self, text=f'Статус: {self.status}',
+                                           font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_info_status.pack(pady=(50, 0))
+
+class OpenEditProject(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Редактировать')
+        self.iconbitmap('')
+        self.geometry('1200x600')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.db = db
+        self.init_edit_project_page()
+
+    def init_edit_project_page(self):
+        self.btn_edit_project_info_page = ttk.Button(self, text='Редактировать информацию', width=40,
+                                                command=self.edit_project_info)
+        self.btn_edit_project_info_page.pack(side=tk.TOP, pady=(150, 0))
+
+        self.btn_edit_project_team_page = ttk.Button(self, text='Команда', width=40,
+                                                command=self.edit_project_team)
+        self.btn_edit_project_team_page.pack(side=tk.TOP, pady=50)
+
+        self.btn_edit_project_result_page = ttk.Button(self, text='Результаты', width=40,
+                                                command=self.edit_project_info)
+        self.btn_edit_project_result_page.pack(side=tk.TOP, pady=50)
+
+    def edit_project_info(self):
+        OpenEditProjectInfo()
+
+    def edit_project_team(self):
+        OpenEditProjectTeam()
+
+class OpenEditProjectInfo(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Изменение информации о проекте')
+        self.iconbitmap('')
+        self.geometry('1200x800')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.db = db
+        self.init_edit_project_info_page()
+
+    def init_edit_project_info_page(self):
+        self.label_edit_project = ttk.Label(self, text='Изменить информацию о проекте',
+                                            font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_edit_project.pack(pady=(100, 0))
 
         self.label_description_edit = ttk.Label(self, text='Описание проекта:',
-                                           font=("Helvetica", 24, 'bold'))
-        self.label_description_edit.pack(pady=(50, 0))
+                                                font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_description_edit.pack(pady=(20, 0))
 
-        self.entry_description_edit = ttk.Entry(self, bootstyle='secondary', font=("Helvetica", 8, 'bold'))
-        self.entry_description_edit.pack(side=ttk.TOP, padx=10, pady=(5, 20))
+        self.entry_description_edit = ttk.Entry(self, font=("Helvetica", 16, 'bold'), width=40)
+        self.entry_description_edit.pack(pady=(20, 0))
 
+        self.label_status = ttk.Label(self, text='Статус проекта:',
+                                      font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_status.pack(pady=(20, 0))
 
-        combobox_values = ['На утверждении', 'Активен', 'Закончен']
-        self.combobox_status_edit = ttk.Combobox(self, values=combobox_values, bootstyle="secondary")
-        self.combobox_status_edit.pack(side=ttk.LEFT, padx=35, pady=5)
+        combobox_status_values = ['На утверждении', 'Активен', 'Закончен']
+        self.combobox_status_edit = ttk.Combobox(self, values=combobox_status_values, width=40)
+        self.combobox_status_edit.pack(pady=(20, 0))
 
-    def edit_project(self):
+        self.btn_edit_project_info = ttk.Button(self, text='Подвердить измениня', width=40, command=self.edit_project_info)
+        self.btn_edit_project_info.pack(side=tk.TOP, pady=50)
+
+    def edit_project_info(self):
         description = self.entry_description_edit.get()
         status = self.combobox_status_edit.get()
 
-
         self.db.cur.execute(
-            f"UPDATE db.projects SET projects_project_description = '{description}', projects_project_status = '{status}' WHERE projects_project_id ={id_edit_project}"
+            f"UPDATE db.projects SET projects_project_description = '{description}', projects_project_status = '{status}' WHERE projects_project_id ={id_selected_project}"
         )
         self.db.connection.commit()
         self.destroy()
         Success()
+
+class OpenEditProjectTeam(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Изменение информации о команде')
+        self.iconbitmap('')
+        self.geometry('1200x800')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.db = db
+        self.init_edit_project_team_page()
+        self.view_team_members()
+
+    def init_edit_project_team_page(self):
+        def select_team_member(a):
+            selected_item = self.tree_team_page.focus()
+            global id_selected_member
+            id_selected_member = self.tree_team_page.item(selected_item)['values'][0]
+
+        self.label_edit_project_team = ttk.Label(self, text='Команда проекта:',
+                                            font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_edit_project_team.pack(pady=(100, 0))
+
+        self.tree_team_page = ttk.Treeview(self,
+                                           columns=('member.id', 'member.login'),
+                                           height=25,
+                                           show='headings')
+        self.tree_team_page.column('member.id', width=200, anchor=tk.CENTER)
+        self.tree_team_page.column('member.login', width=200, anchor=tk.CENTER)
+
+
+        self.tree_team_page.heading('member.id', text='Номер', anchor=tk.CENTER)
+        self.tree_team_page.heading('member.login', text='Логин', anchor=tk.CENTER)
+
+
+        self.tree_team_page.bind("<<TreeviewSelect>>", select_team_member)
+
+        self.tree_team_page.pack(pady=10)
+
+        self.btn_delete_member = ttk.Button(self, text='Исключить из команды', width=40,
+                                                command=self.delete_team_member)
+        self.btn_delete_member.pack(pady=10)
+
+    def view_team_members(self):
+        self.db.cur.execute(
+            f"SELECT db.users.users_user_id, db.users.users_user_login FROM db.projects INNER JOIN db.project_team ON db.project_team.project_team_projects_project_id = db.projects.projects_project_id INNER JOIN db.project_team_members ON db.project_team_members.project_team_members_project_team_project_team_id = db.project_team.project_team_id INNER JOIN db.users ON db.users.users_user_id = db.project_team_members.project_team_members_users_user_id WHERE db.projects.projects_project_id={id_selected_project}"
+        )
+        [self.tree_team_page.delete(i) for i in self.tree_team_page.get_children()]
+        [self.tree_team_page.insert('', 'end', values=row) for row in self.db.cur.fetchall()]
+
+    def delete_team_member(self):
+        self.db.cur.execute(
+            f"DELETE FROM db.project_team_members WHERE project_team_members_users_user_id =1 AND db.project_team_members.project_team_members_project_team_project_team_id = (SELECT db.project_team.project_team_id FROM db.project_team WHERE db.project_team.project_team_projects_project_id = {id_selected_project})"
+        )
+        self.db.connection.commit()
+        self.destroy()
+        Success()
+
+class OpenDeleteProject(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Удалить проект')
+        self.iconbitmap('')
+        self.geometry('800x500')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.db = db
+        self.init_delete_project_page()
+
+    def init_delete_project_page(self):
+        self.label_delete_project= ttk.Label(self, text='Вы хотите удалить проект?',
+                                                 font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_delete_project.pack(pady=(100, 0))
+
+        self.btn_yes_delete = ttk.Button(self, text='Да', width=40,
+                                                command=self.delete_project)
+        self.btn_yes_delete.pack(side=tk.TOP, pady=50)
+
+        self.btn_no_delete = ttk.Button(self, text='Нет', width=40,
+                                                command=self.destroy)
+        self.btn_no_delete.pack(side=tk.TOP, pady=50)
 
     def delete_project(self):
+        id_team = self.db.cur.execute(
+            f"SELECT db.project_team.project_team_id FROM db.project_team WHERE db.project_team.project_team_projects_project_id ={id_selected_project}"
+        )
+        id_team = self.db.cur.fetchone()
+        id_team = id_team[0]
+
         self.db.cur.execute(
-            f"DELETE FROM db.projects WHERE projects_project_id ={id_edit_project}"
+            f"DELETE FROM db.project_team_members WHERE db.project_team_members.project_team_members_project_team_project_team_id ={id_team}"
+        )
+        self.db.connection.commit()
+
+        self.db.cur.execute(
+            f"DELETE FROM db.project_team WHERE db.project_team.project_team_projects_project_id ={id_selected_project}"
+        )
+        self.db.connection.commit()
+
+        self.db.cur.execute(
+            f"DELETE FROM db.projects WHERE projects_project_id ={id_selected_project}"
         )
         self.db.connection.commit()
         self.destroy()
         Success()
 
-    def edit_team_project_page(self):
-        EditProjectTeam()
-
-class EditProjectTeam(ttk.Toplevel):
+class OpenApprovedProject(tk.Toplevel):
     def __init__(self):
-        super().__init__(root)
-        self.db = db
-        self.init_edit_team_project()
-        self.edit_team_project()
-
-    def init_edit_team_project(self):
-        self.title('Редактирование команды проекта')
-        self.geometry('1200x800')
+        super().__init__()
+        self.title('Утвердить проект')
+        self.iconbitmap('')
+        self.geometry('800x500')
+        self['background'] = 'gray'
         self.resizable(False, False)
 
-        def select_delete_member(a):
-            item = self.tree_project_team.focus()
-            global id_team_member
-            id_team_member = self.tree_project_team.item(item)['values'][0]
-            DeleteTeamMember()
-
-        self.label_project_team = ttk.Label(self, text='Команда проекта:',
-                                            font=("Helvetica", 24, 'bold'))
-        self.label_project_team.pack(pady=(50, 0))
-
-        self.tree_project_team = ttk.Treeview(self,
-                                              columns=(
-                                              'users.id', 'users.login'),
-                                              height=35,
-                                              show='headings')
-        self.tree_project_team.column('users.id', width=200, anchor=ttk.CENTER)
-        self.tree_project_team.column('users.login', width=200, anchor=ttk.CENTER)
-
-
-        self.tree_project_team.heading('users.id', text='Номер участника', anchor=ttk.CENTER)
-        self.tree_project_team.heading('users.login', text='Логин участника', anchor=ttk.CENTER)
-
-
-        self.tree_project_team.pack(pady=(80, 150))
-
-    def edit_team_project(self):
-        self.db.cur.execute(
-            f"SELECT users_user_id, users_user_login FROM db.project_team_members INNER JOIN db.users ON db.users.users_user_id = db.project_team_members.project_team_members_users_user_id INNER JOIN db.project_team ON db.project_team.project_team_id = db.project_team_members.project_team_members_project_team_project_team_id INNER JOIN db.projects ON db.projects.projects_project_id = db.project_team.project_team_projects_project_id WHERE projects.projects_project_id ={id_edit_project}"
-        )
-        [self.tree_project_team.delete(i) for i in self.tree_project_team.get_children()]
-        [self.tree_project_team.insert('', 'end', values=row) for row in self.db.cur.fetchall()]
-
-class DeleteTeamMember(ttk.Toplevel):
-    def __init__(self):
-        super().__init__(root)
         self.db = db
-        self.init_delete_team_member()
+        self.init_approved_project_page()
 
-    def init_delete_team_member(self):
-        self.title('Удалить участника')
-        self.geometry('1200x800')
-        self.resizable(False, False)
+    def init_approved_project_page(self):
+        self.label_approved_project= ttk.Label(self, text='Вы хотите утвердить проект?',
+                                                 font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
+        self.label_approved_project.pack(pady=(100, 0))
 
-        btn_delete_member = ttk.Button(self, text='Подвердить удаление', bootstyle="success", width=20,
-                                  command=self.delete_member)
-        btn_delete_member.pack(pady=50)
+        self.btn_yes_approved = ttk.Button(self, text='Да', width=40,
+                                                command=self.approved_project)
+        self.btn_yes_approved.pack(side=tk.TOP, pady=50)
 
-#ЗАКОНЧИТЬ
-    def delete_member(self):
+        self.btn_no_approved = ttk.Button(self, text='Нет', width=40,
+                                                command=self.destroy)
+        self.btn_no_approved.pack(side=tk.TOP, pady=50)
+
+    def approved_project(self):
         self.db.cur.execute(
-            f"DELETE FROM db.projects WHERE projects_project_id ={id_edit_project}"
+            f"UPDATE db.projects SET projects_project_status = 'Активен' WHERE projects_project_id ={id_selected_project_not_approved}"
         )
         self.db.connection.commit()
         self.destroy()
         Success()
 
-class Success(ttk.Toplevel):
+#######################################################################################
+
+class Success(tk.Toplevel):
     def __init__(self):
-        super().__init__(root)
-
-        self.db = db
-
-        self.init_registration()
-
-    def init_registration(self):
+        super().__init__()
         self.title('Успешно')
-        self.geometry('200x400')
+        self.iconbitmap('')
+        self.geometry('300x250')
+        self['background'] = 'gray'
         self.resizable(False, False)
 
-        self.label_success = ttk.Label(self, text='Успешно!',
-                                            font=("Helvetica", 24, 'bold'))
+        self.db = db
+
+        self.init_success()
+
+    def init_success(self):
+        self.label_success= ttk.Label(self, text='Успешно!',
+                                      font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
         self.label_success.pack(pady=(50, 0))
+
+        self.btn_error_password = ttk.Button(self, text='Продолжить', width=25,
+                                             command=self.btn_success)
+        self.btn_error_password.pack(pady=(50, 0))
+
+    def btn_success(self):
+        self.destroy()
 
 
 class DB:
@@ -380,16 +678,8 @@ class DB:
         self.connection = self.engine.raw_connection()
         self.cur = self.connection.cursor()
 
-if __name__ == "__main__":
 
-    root = ttk.Window(themename='darkly')
-    db = DB(config.host, config.user, config.password, config.db_name)
+db = DB(config.host, config.user, config.password, config.db_name)
+app = Autorization()
 
-    app = MainPage(root)
-    app.pack()
-
-    root.title('Главная')
-    root.iconbitmap('')
-    root.geometry('1200x800')
-    root.resizable(False, False)
-    root.mainloop()
+app.mainloop()
