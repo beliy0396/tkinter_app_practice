@@ -412,7 +412,7 @@ class AddedNewProject(tk.Toplevel):
         self.label_skills.pack(side=tk.LEFT, padx=10, pady=(40, 0))
 
         combobox_skills_values = ['Дата каратист', 'Игродел', '.NET']
-        self.combobox_skills = ttk.Combobox(frame_skills_project, values=combobox_skills_values, width=35)
+        self.combobox_skills = ttk.Combobox(frame_skills_project, values=combobox_skills_values, width=35, state='readonly')
         self.combobox_skills.pack(side=tk.LEFT, padx=10, pady=(40, 0))
 
         self.btn_added_new_project = ttk.Button(self, text='Добавить проект', width=40, command=self.added_new_project)
@@ -536,7 +536,7 @@ class OpenInfoProject(tk.Toplevel):
 class OpenEditProject(tk.Toplevel):
     def __init__(self):
         super().__init__()
-        self.title('Редактировать')
+        self.title('Редактировать информацию проекта')
         self.iconbitmap('')
         self.geometry('800x300')
         self['background'] = 'gray'
@@ -567,9 +567,9 @@ class OpenEditProject(tk.Toplevel):
 class OpenEditProjectInfo(tk.Toplevel):
     def __init__(self):
         super().__init__()
-        self.title('Изменение информации о проекте')
+        self.title('Редактировать')
         self.iconbitmap('')
-        self.geometry('1200x600')
+        self.geometry('800x300')
         self['background'] = 'gray'
         self.resizable(False, False)
 
@@ -577,36 +577,83 @@ class OpenEditProjectInfo(tk.Toplevel):
         self.init_edit_project_info_page()
 
     def init_edit_project_info_page(self):
-        self.label_edit_project = ttk.Label(self, text='Изменить информацию о проекте',
+        self.btn_edit_project_description_page = ttk.Button(self, text='Изменить описание', width=40,
+                                                     command=self.btn_edit_project_description)
+        self.btn_edit_project_description_page.pack(side=tk.TOP, pady=(100, 0))
+
+        self.btn_edit_project_status_page = ttk.Button(self, text='Изменить статус', width=40,
+                                                       command=self.edit_project_status)
+        self.btn_edit_project_status_page.pack(side=tk.TOP, pady=(50, 0))
+
+    def btn_edit_project_description(self):
+        OpenDescriptionEdit()
+
+    def edit_project_status(self):
+        OpenStatusEdit()
+
+class OpenDescriptionEdit(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Изменение описания проекта')
+        self.iconbitmap('')
+        self.geometry('800x400')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.db = db
+        self.init_edit_project_description_page()
+
+    def init_edit_project_description_page(self):
+        self.label_edit_project = ttk.Label(self, text='Введите новое описание:',
                                             font=("Helvetica", 24, 'bold'), foreground='white', background='gray')
         self.label_edit_project.pack(pady=(100, 0))
-
-        self.label_description_edit = ttk.Label(self, text='Описание проекта:',
-                                                font=("Helvetica", 22, 'bold'), foreground='white', background='gray')
-        self.label_description_edit.pack(pady=(20, 0))
 
         self.entry_description_edit = ttk.Entry(self, font=("Helvetica", 16, 'bold'), width=40)
         self.entry_description_edit.pack(pady=(20, 0))
 
-        self.label_status = ttk.Label(self, text='Статус проекта:',
-                                      font=("Helvetica", 22, 'bold'), foreground='white', background='gray')
-        self.label_status.pack(pady=(20, 0))
-
-        combobox_status_values = ['На утверждении', 'Активен', 'Закончен']
-        self.combobox_status_edit = ttk.Combobox(self, values=combobox_status_values, width=40)
-        self.combobox_status_edit.pack(pady=(20, 0))
-
-        self.btn_edit_project_info = ttk.Button(self, text='Подвердить измениня', width=40, command=self.edit_project_info)
+        self.btn_edit_project_info = ttk.Button(self, text='Подвердить измениня', width=40, command=self.edit_project_description)
         self.btn_edit_project_info.pack(side=tk.TOP, pady=50)
 
-    def edit_project_info(self):
+    def edit_project_description(self):
         description = self.entry_description_edit.get()
+        self.db.cur.execute(
+            f"UPDATE db.projects SET projects_project_description = '{description}' WHERE projects_project_id ={id_selected_project}"
+        )
+        self.db.connection.commit()
+        self.destroy()
+        Success()
+
+class OpenStatusEdit(tk.Toplevel):
+    def __init__(self):
+        super().__init__()
+        self.title('Изменение статуса проекта')
+        self.iconbitmap('')
+        self.geometry('800x400')
+        self['background'] = 'gray'
+        self.resizable(False, False)
+
+        self.db = db
+        self.init_edit_project_status_page()
+
+    def init_edit_project_status_page(self):
+        self.label_status = ttk.Label(self, text='Статус проекта:',
+                                      font=("Helvetica", 22, 'bold'), foreground='white', background='gray')
+        self.label_status.pack(pady=(100, 0))
+
+        combobox_status_values = ['На утверждении', 'Активен', 'Закончен']
+        self.combobox_status_edit = ttk.Combobox(self, values=combobox_status_values, width=40, state='readonly')
+        self.combobox_status_edit.pack(pady=(20, 0))
+
+        self.btn_edit_project_info = ttk.Button(self, text='Подвердить измениня', width=40, command=self.edit_project_status)
+        self.btn_edit_project_info.pack(side=tk.TOP, pady=50)
+
+    def edit_project_status(self):
         status = self.combobox_status_edit.get()
         if status == '':
             DontFieldsFilled()
         else:
             self.db.cur.execute(
-                f"UPDATE db.projects SET projects_project_description = '{description}', projects_project_status = '{status}' WHERE projects_project_id ={id_selected_project}"
+                f"UPDATE db.projects SET projects_project_status = '{status}' WHERE projects_project_id ={id_selected_project}"
             )
             self.db.connection.commit()
             self.destroy()
